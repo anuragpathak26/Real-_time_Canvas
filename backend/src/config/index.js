@@ -18,6 +18,8 @@ export const corsOptions = {
     'http://localhost:5000',
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5173',
+    'https://real-time-canvas-1.onrender.com',
+    'https://real-time-canvas-backend-wd2v.onrender.com',
   ],
   credentials: true,
   optionsSuccessStatus: 200,
@@ -35,7 +37,10 @@ export const rateLimitOptions = {
 // Socket.IO configuration
 export const socketOptions = {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: [
+      process.env.CLIENT_URL || 'http://localhost:3000',
+      'https://real-time-canvas-1.onrender.com',
+    ],
     methods: ['GET', 'POST'],
     credentials: true,
   },
