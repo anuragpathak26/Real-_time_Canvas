@@ -18,6 +18,7 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
+// Local Strategy for email/password authentication
 passport.use(new LocalStrategy(
   {
     usernameField: 'email',
@@ -42,6 +43,6 @@ passport.use(new LocalStrategy(
       done(error, null);
     }
   }
-});
+));
 
 export default passport;
