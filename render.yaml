@@ -1,0 +1,47 @@
+services:
+  # Backend API Service
+  - type: web
+    name: realtime-canvas-backend
+    runtime: node
+    rootDir: ./backend
+    buildCommand: npm install
+    startCommand: npm start
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        fromDatabase:
+          name: realtime-canvas-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: CLIENT_URL
+        value: https://realtime-canvas-frontend.onrender.com
+
+  # Frontend Static Site
+  - type: web
+    name: realtime-canvas-frontend
+    runtime: static
+    rootDir: ./frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./build
+    plan: free
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://realtime-canvas-backend.onrender.com
+
+databases:
+  - name: realtime-canvas-db
+    databaseName: realtimecanvas
+    user: dbuser
+    plan: free
