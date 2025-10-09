@@ -1,6 +1,6 @@
 import express from 'express';
 import passport from 'passport';
-import { register, login, getMe, oauthSuccess, oauthFailure, debugUsers, debugResetPassword, fixKushalPassword, testEndpoint, createTestUser, testLogin } from '../controllers/auth.controller.js';
+import { register, login, getMe, debugUsers, debugResetPassword, fixKushalPassword, testEndpoint, createTestUser, testLogin } from '../controllers/auth.controller.js';
 import { protect } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
@@ -48,29 +48,7 @@ const validateLogin = (req, res, next) => {
 router.post('/register', validateRegister, register);
 router.post('/login', validateLogin, login);
 
-// OAuth routes
-// Google OAuth
-router.get('/google', 
-  passport.authenticate('google', { scope: ['profile', 'email'] })
-);
-
-router.get('/google/callback',
-  passport.authenticate('google', { failureRedirect: '/api/auth/failure' }),
-  oauthSuccess
-);
-
-// GitHub OAuth
-router.get('/github',
-  passport.authenticate('github', { scope: ['user:email'] })
-);
-
-router.get('/github/callback',
-  passport.authenticate('github', { failureRedirect: '/api/auth/failure' }),
-  oauthSuccess
-);
-
-// OAuth failure route
-router.get('/failure', oauthFailure);
+// OAuth routes removed - using only email/password authentication
 
 // Protected routes
 router.get('/me', protect, getMe);
