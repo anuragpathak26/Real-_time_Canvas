@@ -185,22 +185,28 @@ async function processLogin(user, password, res) {
     
     // For debugging, let's also try direct comparison (in case password is not hashed)
     const directMatch = password === user.password;
-    console.log('Direct password comparison (unhashed):', directMatch);
     
     if (directMatch) {
       console.log('⚠️ Password was stored as plain text, updating to hashed...');
       // Hash the password and update the user
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
-      await User.findByIdAndUpdate(user._id, { password: hashedPassword });
-      console.log('✅ Password updated to hashed version');
-    } else {
-      // Check if the stored hash is valid
-      if (!user.password.startsWith('$2b$') && !user.password.startsWith('$2a$')) {
-        console.log('⚠️ Stored password doesn\'t look like a bcrypt hash');
-        console.log('Hash format:', user.password.substring(0, 10) + '...');
-      }
       
+      // Update user with hashed password
+      await User.findByIdAndUpdate(user._id, { password: hashedPassword });
+      console.log('✅ Password auto-fixed and hashed for user:', user.email);
+      
+      // Continue with login since we just fixed the password
+      // 3. Check password
+      const isMatch = await bcrypt.compare(password, hashedPassword);
+      console.log('bcrypt.compare result:', isMatch);
+      
+      if (!isMatch) {
+        console.log('Password hash format looks correct but doesn\'t match');
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+    } else {
+      console.log('Password hash format looks correct but doesn\'t match');
       return res.status(401).json({ message: 'Invalid credentials' });
     }
   }
