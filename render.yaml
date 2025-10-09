@@ -38,7 +38,7 @@ services:
         destination: /index.html
     envVars:
       - key: REACT_APP_API_URL
-        value: https://realtime-canvas-backend.onrender.com
+        value: https://real-time-canvas-backend-wd2v.onrender.com
 
 databases:
   - name: realtime-canvas-db

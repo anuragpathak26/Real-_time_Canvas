@@ -57,7 +57,7 @@
 
 3. **Environment Variables**
    ```
-   REACT_APP_API_URL=https://realtime-canvas-backend.onrender.com
+   REACT_APP_API_URL=https://real-time-canvas-backend-wd2v.onrender.com
    GENERATE_SOURCEMAP=false
    ```
 
@@ -86,9 +86,9 @@
 - Production-ready configurations
 
 ## 🌐 Expected URLs After Deployment
-- **Frontend**: `https://realtime-canvas-frontend.onrender.com`
-- **Backend API**: `https://realtime-canvas-backend.onrender.com`
-- **Health Check**: `https://realtime-canvas-backend.onrender.com/health`
+- **Frontend**: `https://real-time-canvas-frontend.onrender.com`
+- **Backend API**: `https://real-time-canvas-backend-wd2v.onrender.com`
+- **Health Check**: `https://real-time-canvas-backend-wd2v.onrender.com/health`
 
 ## 🛠️ Troubleshooting
 
