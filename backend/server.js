@@ -44,16 +44,16 @@ const connectMongoDB = async () => {
       retryWrites: true,
       w: 'majority'
     });
-    console.log('✅ MongoDB Atlas connected successfully');
-    console.log('✅ Database: realtimecanvas');
+    console.log(' MongoDB Atlas connected successfully');
+    console.log(' Database: realtimecanvas');
   } catch (err) {
-    console.error('❌ MongoDB connection failed:', err.message);
-    console.log('🔄 Server continuing in demo mode...');
-    console.log('📝 Note: Data will not be persisted until MongoDB connects');
+    console.error(' MongoDB connection failed:', err.message);
+    console.log(' Server continuing in demo mode...');
+    console.log(' Note: Data will not be persisted until MongoDB connects');
     
     if (err.message.includes('IP')) {
-      console.log('💡 Tip: Add your IP to MongoDB Atlas Network Access');
-      console.log('💡 Or add 0.0.0.0/0 to allow all IPs');
+      console.log(' Tip: Add your IP to MongoDB Atlas Network Access');
+      console.log(' Or add 0.0.0.0/0 to allow all IPs');
     }
     
     // Retry connection every 30 seconds
@@ -70,20 +70,6 @@ app.use(express.json()); // Add JSON parsing middleware
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Session middleware removed - using JWT authentication only
-// app.use(session({
-//   secret: process.env.SESSION_SECRET || 'your-session-secret',
-//   resave: false,
-//   saveUninitialized: false,
-//   cookie: {
-//     secure: process.env.NODE_ENV === 'production',
-//     maxAge: 24 * 60 * 60 * 1000 // 24 hours
-//   }
-// }));
-
-// Passport middleware removed - using JWT authentication only
-// app.use(passport.initialize());
-// app.use(passport.session());
 
 // Health check route
 app.get('/health', (req, res) => {

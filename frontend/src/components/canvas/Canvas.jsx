@@ -63,7 +63,7 @@ const Canvas = forwardRef(({ roomId, user, onSave, onPresenceUpdate, width = 120
   };
 
   useEffect(() => {
-    const wsUrl = process.env.REACT_APP_WS_URL || 'http://localhost:5000';
+    const wsUrl = process.env.REACT_APP_WS_URL || 'https://real-time-canvas-backend-wd2v.onrender.com';
     const newSocket = io(wsUrl, {
       auth: { token: localStorage.getItem('token') },
       query: { roomId },

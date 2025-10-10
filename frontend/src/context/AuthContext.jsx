@@ -5,7 +5,7 @@ import axios from 'axios';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://real-time-canvas-backend-wd2v.onrender.com/api';
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
