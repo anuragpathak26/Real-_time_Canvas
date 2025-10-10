@@ -1,5 +1,5 @@
 import express from 'express';
-import passport from 'passport';
+// import passport from 'passport'; // Removed - using JWT authentication only
 import { register, login, getMe, debugUsers, debugResetPassword, fixKushalPassword, testEndpoint, createTestUser, testLogin, debugSystemStatus } from '../controllers/auth.controller.js';
 import { protect } from '../middleware/auth.middleware.js';
 

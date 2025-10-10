@@ -4,7 +4,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import mongoose from 'mongoose';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import session from 'express-session';
+// import session from 'express-session'; // Removed - using JWT authentication only
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -12,8 +12,8 @@ import { dirname } from 'path';
 // Config
 import { PORT, MONGODB_URI, corsOptions, socketOptions } from './src/config/index.js';
 
-// Passport configuration
-import passport from './src/config/passport.js';
+// Passport configuration removed - using JWT authentication only
+// import passport from './src/config/passport.js';
 
 // Routes
 import authRoutes from './src/routes/auth.routes.js';
@@ -70,20 +70,20 @@ app.use(express.json()); // Add JSON parsing middleware
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Session middleware (required for passport)
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-session-secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
-}));
+// Session middleware removed - using JWT authentication only
+// app.use(session({
+//   secret: process.env.SESSION_SECRET || 'your-session-secret',
+//   resave: false,
+//   saveUninitialized: false,
+//   cookie: {
+//     secure: process.env.NODE_ENV === 'production',
+//     maxAge: 24 * 60 * 60 * 1000 // 24 hours
+//   }
+// }));
 
-// Passport middleware
-app.use(passport.initialize());
-app.use(passport.session());
+// Passport middleware removed - using JWT authentication only
+// app.use(passport.initialize());
+// app.use(passport.session());
 
 // Health check route
 app.get('/health', (req, res) => {
