@@ -55,25 +55,72 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     try {
       setError(null);
+      console.log('🔥 Attempting login with:', { email: credentials.email, password: '***' });
+      console.log('🔥 API URL:', `${API_BASE_URL}/auth/login`);
+      
       const response = await axios.post(`${API_BASE_URL}/auth/login`, credentials, {
         headers: { 'Content-Type': 'application/json' },
-        timeout: 5000,
+        timeout: 10000, // Increased timeout for production server
       });
+      
+      console.log('✅ Login successful:', response.data);
       const { token, user } = response.data;
       localStorage.setItem('token', token);
       setUser(user);
       return { success: true };
     } catch (err) {
+      console.error('❌ Login error details:', {
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data,
+        message: err.message,
+        code: err.code
+      });
+      
       let errorMessage = 'Login failed';
+      let debugInfo = '';
+      
       if (!err.response) {
-        console.error('Login server connection failed:', err.message);
-        errorMessage = 'Cannot connect to server. Please ensure the backend is running.';
+        if (err.code === 'ECONNREFUSED') {
+          errorMessage = 'Cannot connect to server. The backend server appears to be down.';
+          debugInfo = 'Check if the backend is running on the correct port.';
+        } else if (err.code === 'ENOTFOUND') {
+          errorMessage = 'Server not found. Please check the server URL.';
+          debugInfo = `Trying to connect to: ${API_BASE_URL}`;
+        } else {
+          errorMessage = 'Network error. Please check your internet connection.';
+          debugInfo = err.message;
+        }
       } else {
-        console.error('Login failed with status:', err.response.status, err.response.data);
-        errorMessage = err.response.data?.message || 'Invalid email or password.';
+        const status = err.response.status;
+        const data = err.response.data;
+        
+        switch (status) {
+          case 401:
+            errorMessage = data?.message || 'Invalid credentials';
+            debugInfo = 'This could be due to: wrong password, user not found, or database connection issues.';
+            break;
+          case 404:
+            errorMessage = 'Login endpoint not found';
+            debugInfo = 'The server may be misconfigured or the API route is missing.';
+            break;
+          case 500:
+            errorMessage = 'Server error occurred';
+            debugInfo = 'This is likely a database connection issue or server misconfiguration.';
+            break;
+          case 400:
+            errorMessage = data?.message || 'Invalid request';
+            debugInfo = 'Check that email and password are provided correctly.';
+            break;
+          default:
+            errorMessage = data?.message || `Server error (${status})`;
+            debugInfo = 'Unexpected server response.';
+        }
       }
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
+      
+      console.error('🔧 Debug info:', debugInfo);
+      setError(`${errorMessage}${debugInfo ? ` (${debugInfo})` : ''}`);
+      return { success: false, error: errorMessage, debugInfo };
     }
   };
 

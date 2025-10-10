@@ -66,7 +66,7 @@ export const register = async (req, res) => {
     // 5. Generate JWT token
     const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '7d' });
 
-    console.log('✅ User registered successfully:', email);
+    console.log('User registered successfully:', email);
     res.status(201).json({
       message: 'User created successfully',
       token,
@@ -82,88 +82,6 @@ export const register = async (req, res) => {
   }
 };
 
-export const login = async (req, res) => {
-  console.log('🔥 LOGIN REQUEST RECEIVED');
-  console.log('Request method:', req.method);
-  console.log('Request URL:', req.url);
-  console.log('Request headers:', req.headers);
-  console.log('Request body:', req.body);
-  
-  try {
-    const { email: rawEmail, password } = req.body;
-
-    if (!rawEmail || !password) {
-      console.log('❌ Missing email or password');
-      return res.status(400).json({ message: 'Email and password are required' });
-    }
-
-    // 1. Normalize email to lowercase (fix case sensitivity issue)
-    const email = rawEmail.toLowerCase().trim();
-
-    console.log('Login attempt:', { 
-      rawEmail, 
-      normalizedEmail: email, 
-      password: '***hidden***',
-      mongoState: mongoose.connection.readyState 
-    });
-
-    // Check if MongoDB is connected
-    if (mongoose.connection.readyState !== 1) {
-      console.log('MongoDB not connected, using demo mode');
-      // Fallback: Create demo user for any login attempt
-      const demoUser = {
-        id: Date.now().toString(),
-        name: email.split('@')[0] || 'Demo User', // Use email prefix as name
-        email: email,
-        createdAt: new Date(),
-      };
-      
-      const token = jwt.sign({ userId: demoUser.id }, JWT_SECRET, { expiresIn: '7d' });
-      
-      return res.json({
-        message: 'Demo login successful (data not persisted)',
-        token,
-        user: demoUser,
-      });
-    }
-
-    // 2. Find user by normalized email
-    const user = await User.findOne({ email });
-    if (!user) {
-      console.log('User not found with normalized email:', email);
-      
-      // Check if user exists with different case
-      const userAnyCase = await User.findOne({ 
-        email: { $regex: new RegExp(`^${email}$`, 'i') } 
-      });
-      
-      if (userAnyCase) {
-        console.log('Found user with different case:', userAnyCase.email);
-        console.log('Updating user email to normalized version...');
-        
-        // Update the user's email to normalized version
-        await User.findByIdAndUpdate(userAnyCase._id, { email: email });
-        console.log('Email normalized and updated in database');
-        
-        // Continue with this user
-        const updatedUser = await User.findById(userAnyCase._id);
-        return await processLogin(updatedUser, password, res);
-      }
-      
-      // Let's also check all users in database for debugging
-      const allUsers = await User.find({}, 'email name');
-      console.log('All users in database:', allUsers.map(u => ({ email: u.email, name: u.name })));
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    return await processLogin(user, password, res);
-
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
 // Helper function to process login after user is found
 async function processLogin(user, password, res) {
   console.log('Processing login for user:', { 
@@ -172,22 +90,30 @@ async function processLogin(user, password, res) {
     name: user.name 
   });
   
-  console.log('Provided password:', password);
-  console.log('Stored password hash:', user.password);
-  console.log('Hash starts with $2b$:', user.password.startsWith('$2b$'));
+  console.log('Provided password length:', password.length);
+  console.log('Stored password hash length:', user.password ? user.password.length : 0);
+  console.log('Hash starts with $2b$:', user.password && user.password.startsWith('$2b$'));
+
+  if (!user.password) {
+    console.log('❌ User has no password set');
+    return res.status(401).json({ message: 'Invalid credentials' });
+  }
 
   // 3. Check password using bcrypt.compare
-  const isMatch = await bcrypt.compare(password, user.password);
-  console.log('bcrypt.compare result:', isMatch);
+  let isMatch = false;
   
-  if (!isMatch) {
-    console.log('❌ Password mismatch for user:', user.email);
+  try {
+    isMatch = await bcrypt.compare(password, user.password);
+    console.log('bcrypt.compare result:', isMatch);
+  } catch (bcryptError) {
+    console.log('❌ bcrypt.compare failed:', bcryptError.message);
     
-    // For debugging, let's also try direct comparison (in case password is not hashed)
+    // If bcrypt fails, the password might be stored as plain text (legacy issue)
     const directMatch = password === user.password;
+    console.log('Direct password comparison:', directMatch);
     
     if (directMatch) {
-      console.log('⚠️ Password was stored as plain text, updating to hashed...');
+      console.log('⚠️ Password was stored as plain text, fixing...');
       // Hash the password and update the user
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
@@ -195,20 +121,16 @@ async function processLogin(user, password, res) {
       // Update user with hashed password
       await User.findByIdAndUpdate(user._id, { password: hashedPassword });
       console.log('✅ Password auto-fixed and hashed for user:', user.email);
-      
-      // Continue with login since we just fixed the password
-      // 3. Check password
-      const isMatch = await bcrypt.compare(password, hashedPassword);
-      console.log('bcrypt.compare result:', isMatch);
-      
-      if (!isMatch) {
-        console.log('Password hash format looks correct but doesn\'t match');
-        return res.status(401).json({ message: 'Invalid credentials' });
-      }
+      isMatch = true; // Allow login since we just fixed the password
     } else {
-      console.log('Password hash format looks correct but doesn\'t match');
+      console.log('❌ Password verification failed completely');
       return res.status(401).json({ message: 'Invalid credentials' });
     }
+  }
+  
+  if (!isMatch) {
+    console.log('❌ Password mismatch for user:', user.email);
+    return res.status(401).json({ message: 'Invalid credentials' });
   }
 
   // 4. Generate JWT token
@@ -336,7 +258,7 @@ export const fixKushalPassword = async (req, res) => {
 
 // Simple test endpoint
 export const testEndpoint = async (req, res) => {
-  console.log('🔥 TEST ENDPOINT HIT');
+  console.log('TEST ENDPOINT HIT');
   res.json({ 
     message: 'Auth endpoint is working!', 
     timestamp: new Date().toISOString(),
@@ -348,7 +270,7 @@ export const testEndpoint = async (req, res) => {
 // Test login endpoint with detailed debugging
 export const testLogin = async (req, res) => {
   try {
-    console.log('🔥 TEST LOGIN ENDPOINT HIT');
+    console.log('TEST LOGIN ENDPOINT HIT');
     
     const testEmail = 'test@example.com';
     const testPassword = 'test123';
@@ -408,7 +330,7 @@ export const testLogin = async (req, res) => {
 // Create test user endpoint
 export const createTestUser = async (req, res) => {
   try {
-    console.log('🔥 CREATING TEST USER');
+    console.log(' CREATING TEST USER');
     
     const testEmail = 'test@example.com';
     const testPassword = 'test123';
@@ -446,7 +368,7 @@ export const createTestUser = async (req, res) => {
     });
 
     await testUser.save();
-    console.log('✅ Test user created successfully');
+    console.log('Test user created successfully');
 
     res.json({
       message: 'Test user created successfully!',
@@ -502,5 +424,53 @@ export const debugResetPassword = async (req, res) => {
   } catch (error) {
     console.error('Debug reset password error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// New debug endpoint to check system status
+export const debugSystemStatus = async (req, res) => {
+  try {
+    const systemInfo = {
+      timestamp: new Date().toISOString(),
+      mongodb: {
+        connected: mongoose.connection.readyState === 1,
+        state: mongoose.connection.readyState,
+        host: mongoose.connection.host,
+        name: mongoose.connection.name
+      },
+      environment: {
+        NODE_ENV: process.env.NODE_ENV,
+        PORT: process.env.PORT,
+        MONGODB_URI: process.env.MONGODB_URI ? 'SET' : 'NOT SET',
+        JWT_SECRET: process.env.JWT_SECRET ? 'SET' : 'NOT SET'
+      },
+      server: {
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        version: process.version
+      }
+    };
+
+    if (mongoose.connection.readyState === 1) {
+      try {
+        const userCount = await User.countDocuments();
+        const sampleUsers = await User.find({}, 'email name createdAt').limit(3);
+        systemInfo.database = {
+          userCount,
+          sampleUsers: sampleUsers.map(u => ({
+            email: u.email,
+            name: u.name,
+            createdAt: u.createdAt
+          }))
+        };
+      } catch (dbError) {
+        systemInfo.database = { error: dbError.message };
+      }
+    }
+
+    res.json(systemInfo);
+  } catch (error) {
+    console.error('Debug system status error:', error);
+    res.status(500).json({ message: 'System status check failed', error: error.message });
   }
 };
