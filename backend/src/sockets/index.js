@@ -81,7 +81,7 @@ async function checkRoomAccess(roomId, userId) {
 }
 
 // Track user presence in rooms
-function updateUserPresence(io, socket, roomId, userId, isJoining = true) {
+async function updateUserPresence(io, socket, roomId, userId, userName, userEmail, isJoining = true) {
   if (!activeUsers.has(roomId)) {
     activeUsers.set(roomId, new Map());
   }
@@ -89,16 +89,33 @@ function updateUserPresence(io, socket, roomId, userId, isJoining = true) {
   const roomUsers = activeUsers.get(roomId);
   
   if (isJoining) {
-    roomUsers.set(socket.id, { userId, lastSeen: Date.now() });
+    roomUsers.set(socket.id, { 
+      _id: userId,
+      id: userId,
+      name: userName,
+      email: userEmail,
+      lastSeen: Date.now() 
+    });
   } else {
     roomUsers.delete(socket.id);
   }
   
   // Broadcast updated user list to all clients in the room
-  const users = Array.from(roomUsers.values()).map(({ userId }) => userId);
+  const users = Array.from(roomUsers.values()).map(user => ({
+    _id: user._id || user.id,
+    id: user.id || user._id,
+    name: user.name,
+    email: user.email
+  }));
+  
+  // Remove duplicates based on user ID
+  const uniqueUsers = users.filter((user, index, self) => 
+    index === self.findIndex(u => (u._id || u.id) === (user._id || user.id))
+  );
+  
   io.to(roomId).emit('presence:update', { 
     roomId, 
-    users: [...new Set(users)] 
+    users: uniqueUsers
   });
 }
 
@@ -195,7 +212,7 @@ export function socketHandler(io, socket) {
       console.log(`Socket user set:`, socket.user);
       
       // Update presence
-      updateUserPresence(io, socket, roomId, userIdForCheck, true);
+      updateUserPresence(io, socket, roomId, userIdForCheck, user.name, user.email, true);
       
       // Notify the client that they've successfully joined
       socket.emit('room:joined', { 
@@ -354,17 +371,38 @@ export function socketHandler(io, socket) {
   // Chat functionality
   socket.on('chat:message', async ({ roomId, content }) => {
     try {
+      if (!socket.user || !socket.user.id) {
+        console.log('Chat message rejected: user not authenticated');
+        return;
+      }
+
       // Verify room access
-      const hasAccess = await checkRoomAccess(roomId, socket.userId);
+      const hasAccess = await checkRoomAccess(roomId, socket.user.id);
       if (!hasAccess) {
-        console.log(`Unauthorized chat attempt from user ${socket.userId} in room ${roomId}`);
+        console.log(`Unauthorized chat attempt from user ${socket.user.id} in room ${roomId}`);
+        return;
+      }
+
+      // Check if MongoDB is connected
+      if (mongoose.connection.readyState !== 1) {
+        // Demo mode - just broadcast without saving
+        io.to(roomId).emit('chat:message', {
+          _id: Date.now().toString(),
+          content: content.trim(),
+          user: {
+            _id: socket.user.id,
+            name: socket.user.name,
+            email: socket.user.email
+          },
+          timestamp: new Date()
+        });
         return;
       }
 
       // Create and save message
       const message = new ChatMessage({
         room: roomId,
-        user: socket.userId,
+        user: socket.user.id,
         content: content.trim()
       });
       
@@ -392,9 +430,21 @@ export function socketHandler(io, socket) {
   // Get chat history
   socket.on('chat:getHistory', async ({ roomId }) => {
     try {
-      const hasAccess = await checkRoomAccess(roomId, socket.userId);
+      if (!socket.user || !socket.user.id) {
+        console.log('Chat history rejected: user not authenticated');
+        return;
+      }
+
+      const hasAccess = await checkRoomAccess(roomId, socket.user.id);
       if (!hasAccess) {
-        console.log(`Unauthorized chat history request from user ${socket.userId} for room ${roomId}`);
+        console.log(`Unauthorized chat history request from user ${socket.user.id} for room ${roomId}`);
+        return;
+      }
+
+      // Check if MongoDB is connected
+      if (mongoose.connection.readyState !== 1) {
+        // Demo mode - no history
+        socket.emit('chat:history', []);
         return;
       }
 
@@ -424,9 +474,8 @@ export function socketHandler(io, socket) {
     // Remove user from all rooms they were in
     if (socket.rooms) {
       socket.rooms.forEach(roomId => {
-        if (roomId !== socket.id) { // Skip the default room
-          updateUserPresence(io, socket, roomId, socket.user.id, false);
-          activeUsers.delete(roomId);
+        if (roomId !== socket.id && socket.user) { // Skip the default room
+          updateUserPresence(io, socket, roomId, socket.user.id, socket.user.name, socket.user.email, false);
         }
       });
     }

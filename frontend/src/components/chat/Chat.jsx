@@ -43,21 +43,26 @@ const Chat = ({ socket, roomId, isOpen, onToggle }) => {
 
   const handleSendMessage = (e) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || !socket) return;
 
     const message = {
-      content: newMessage,
+      _id: `temp-${Date.now()}`,
+      content: newMessage.trim(),
       user: {
-        _id: user._id,
+        _id: user._id || user.id,
         name: user.name,
         email: user.email
       },
       timestamp: new Date()
     };
 
+    // Add message optimistically to UI
+    setMessages(prev => [...prev, message]);
+
+    // Send to server
     socket.emit('chat:message', {
       roomId,
-      content: newMessage
+      content: newMessage.trim()
     });
 
     setNewMessage('');
@@ -92,22 +97,27 @@ const Chat = ({ socket, roomId, isOpen, onToggle }) => {
         {messages.length === 0 ? (
           <div className="text-gray-500 text-center mt-8">No messages yet. Say hello! 👋</div>
         ) : (
-          messages.map((msg, index) => (
-            <div 
-              key={index} 
-              className={`mb-4 ${msg.user._id === user._id ? 'text-right' : ''}`}
-            >
-              <div className={`inline-block rounded-lg px-3 py-2 max-w-xs ${msg.user._id === user._id ? 'bg-blue-100 text-blue-900' : 'bg-gray-100'}`}>
-                <div className="font-semibold text-sm">
-                  {msg.user._id === user._id ? 'You' : msg.user.name}
-                </div>
-                <div className="text-sm">{msg.content}</div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          messages.map((msg, index) => {
+            const isOwnMessage = (msg.user._id || msg.user.id) === (user._id || user.id);
+            return (
+              <div 
+                key={msg._id || index} 
+                className={`mb-4 ${isOwnMessage ? 'text-right' : ''}`}
+              >
+                <div className={`inline-block rounded-lg px-3 py-2 max-w-xs break-words ${isOwnMessage ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-900'}`}>
+                  {!isOwnMessage && (
+                    <div className="font-semibold text-xs mb-1">
+                      {msg.user.name}
+                    </div>
+                  )}
+                  <div className="text-sm">{msg.content}</div>
+                  <div className={`text-xs mt-1 ${isOwnMessage ? 'text-blue-100' : 'text-gray-500'}`}>
+                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
         <div ref={messagesEndRef} />
       </div>

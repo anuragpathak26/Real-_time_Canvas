@@ -58,7 +58,9 @@ const Canvas = forwardRef(({ roomId, user, onSave, onPresenceUpdate, onSocketRea
     if (!userId || typeof userId !== 'string') {
       return colors[0]; // Default color
     }
-    const index = userId.charCodeAt(0) % colors.length;
+    // Convert userId to string and get first character
+    const userIdStr = String(userId);
+    const index = userIdStr.charCodeAt(0) % colors.length;
     return colors[index];
   };
 
