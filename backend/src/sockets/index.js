@@ -468,6 +468,45 @@ export function socketHandler(io, socket) {
     }
   });
 
+  // WebRTC signaling
+  socket.on('webrtc:join', async ({ roomId }) => {
+    try {
+      if (!socket.user || !socket.user.id) return;
+      if (!roomId || !socket.rooms.has(roomId)) return;
+
+      // Send back current peers in the room (socket IDs), excluding self
+      const roomSet = io.sockets.adapter.rooms.get(roomId) || new Set();
+      const peers = Array.from(roomSet).filter((sid) => sid !== socket.id);
+      socket.emit('webrtc:peers', { roomId, peers });
+    } catch (err) {
+      console.error('webrtc:join error', err);
+    }
+  });
+
+  socket.on('webrtc:offer', ({ roomId, toSocketId, description }) => {
+    if (!roomId || !toSocketId || !description) return;
+    if (!socket.rooms.has(roomId)) return;
+    io.to(toSocketId).emit('webrtc:offer', { roomId, fromSocketId: socket.id, description });
+  });
+
+  socket.on('webrtc:answer', ({ roomId, toSocketId, description }) => {
+    if (!roomId || !toSocketId || !description) return;
+    if (!socket.rooms.has(roomId)) return;
+    io.to(toSocketId).emit('webrtc:answer', { roomId, fromSocketId: socket.id, description });
+  });
+
+  socket.on('webrtc:ice', ({ roomId, toSocketId, candidate }) => {
+    if (!roomId || !toSocketId || !candidate) return;
+    if (!socket.rooms.has(roomId)) return;
+    io.to(toSocketId).emit('webrtc:ice', { roomId, fromSocketId: socket.id, candidate });
+  });
+
+  socket.on('webrtc:leave', ({ roomId }) => {
+    if (!roomId) return;
+    if (!socket.rooms.has(roomId)) return;
+    socket.to(roomId).emit('webrtc:peer-left', { roomId, socketId: socket.id });
+  });
+
   // Handle socket disconnection
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
@@ -476,6 +515,8 @@ export function socketHandler(io, socket) {
       socket.rooms.forEach(roomId => {
         if (roomId !== socket.id && socket.user) { // Skip the default room
           updateUserPresence(io, socket, roomId, socket.user.id, socket.user.name, socket.user.email, false);
+          // Notify peers for WebRTC
+          socket.to(roomId).emit('webrtc:peer-left', { roomId, socketId: socket.id });
         }
       });
     }

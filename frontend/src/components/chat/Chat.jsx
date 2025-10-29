@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FiSend, FiMessageSquare } from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
 
@@ -7,51 +7,94 @@ const Chat = ({ socket, roomId, isOpen, onToggle }) => {
   const [newMessage, setNewMessage] = useState('');
   const { user } = useAuth();
   const messagesEndRef = useRef(null);
+  const seenMessageIdsRef = useRef(new Set());
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  // Helpers to dedupe and reconcile optimistic messages
+  const upsertMessage = useCallback((incoming) => {
+    if (!incoming) return;
+    const incomingId = incoming._id || incoming.id;
+
+    // If we've seen this exact ID, ignore
+    if (incomingId && seenMessageIdsRef.current.has(incomingId)) return;
+
+    setMessages((prev) => {
+      // Try to find a matching optimistic message (by content and author) to replace
+      const currentUserId = user._id || user.id;
+      const incomingUserId = incoming.user?._id || incoming.user?.id;
+
+      let replaced = false;
+      const next = prev.map((m) => {
+        const isOptimistic = String(m._id || '').startsWith('temp-');
+        const sameAuthor = (m.user?._id || m.user?.id) === incomingUserId && incomingUserId === currentUserId;
+        const sameContent = m.content === incoming.content;
+        if (!replaced && isOptimistic && sameAuthor && sameContent) {
+          replaced = true;
+          if (incomingId) {
+            seenMessageIdsRef.current.add(incomingId);
+          }
+          return { ...incoming };
+        }
+        return m;
+      });
+
+      if (!replaced) {
+        if (incomingId) {
+          seenMessageIdsRef.current.add(incomingId);
+        }
+        return [...next, incoming];
+      }
+      return next;
+    });
+  }, [user]);
+
+  const handleNewMessage = useCallback((message) => {
+    // Always upsert; this handles both self and others
+    upsertMessage(message);
+  }, [upsertMessage]);
+
+  const handleMessageHistory = useCallback((messageList) => {
+    // Reset seen IDs and load history uniquely
+    const idSet = new Set();
+    const unique = [];
+    for (const msg of messageList || []) {
+      const mid = msg._id || msg.id;
+      if (mid && !idSet.has(mid)) {
+        idSet.add(mid);
+        unique.push(msg);
+        seenMessageIdsRef.current.add(mid);
+      }
+    }
+    setMessages(unique);
+  }, []);
 
   useEffect(() => {
     if (!socket) return;
 
-    // Listen for new messages
-    const handleNewMessage = (message) => {
-      // Only add message if it's not from current user (to avoid duplicates)
-      const messageUserId = message.user._id || message.user.id;
-      const currentUserId = user._id || user.id;
-      
-      if (messageUserId !== currentUserId) {
-        setMessages(prev => [...prev, message]);
-      }
-    };
-
-    // Listen for message history
-    const handleMessageHistory = (messageList) => {
-      setMessages(messageList);
-    };
-
     socket.on('chat:message', handleNewMessage);
     socket.on('chat:history', handleMessageHistory);
 
-    // Request message history when component mounts
+    // Request message history when component mounts or room changes
     socket.emit('chat:getHistory', { roomId });
 
     return () => {
       socket.off('chat:message', handleNewMessage);
       socket.off('chat:history', handleMessageHistory);
     };
-  }, [socket, roomId, user]);
+  }, [socket, roomId, handleNewMessage, handleMessageHistory]);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, [messages, scrollToBottom]);
 
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !socket) return;
 
-    const message = {
+    const optimistic = {
       _id: `temp-${Date.now()}`,
       content: newMessage.trim(),
       user: {
@@ -62,8 +105,8 @@ const Chat = ({ socket, roomId, isOpen, onToggle }) => {
       timestamp: new Date()
     };
 
-    // Add message optimistically to UI
-    setMessages(prev => [...prev, message]);
+    // Add message optimistically to UI (tracked as temp id)
+    setMessages(prev => [...prev, optimistic]);
 
     // Send to server
     socket.emit('chat:message', {

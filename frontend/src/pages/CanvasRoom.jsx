@@ -7,6 +7,7 @@ import Toolbar from '../components/canvas/Toolbar';
 import UserPresence from '../components/canvas/UserPresence';
 import { FiArrowLeft, FiUsers, FiShare2, FiSettings, FiMessageSquare } from 'react-icons/fi';
 import Chat from '../components/chat/Chat';
+import VideoCall from '../components/video/VideoCall.jsx';
 
 const CanvasRoom = () => {
   const { roomId } = useParams();
@@ -28,6 +29,7 @@ const CanvasRoom = () => {
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 800 });
   const [showChat, setShowChat] = useState(false);
   const [socket, setSocket] = useState(null);
+  const [showVideo, setShowVideo] = useState(false);
 
   const canvasRef = useRef(null);
   const canvasContainerRef = useRef(null);
@@ -86,7 +88,17 @@ const CanvasRoom = () => {
 
 
   const handlePresenceUpdate = (updatedUsers) => {
-    setUsers(updatedUsers);
+    // Ensure uniqueness by user id
+    const seen = new Set();
+    const unique = [];
+    for (const u of updatedUsers || []) {
+      const uid = (u._id || u.id);
+      if (uid && !seen.has(uid)) {
+        seen.add(uid);
+        unique.push(u);
+      }
+    }
+    setUsers(unique);
   };
 
   const handleSocketReady = (socketInstance) => {
@@ -203,6 +215,13 @@ const CanvasRoom = () => {
                 <span className="hidden sm:inline">Chat</span>
               </button>
               <button
+                onClick={() => setShowVideo((v) => !v)}
+                className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2"
+                title="Toggle Video Call"
+              >
+                <span className="hidden sm:inline">Video</span>
+              </button>
+              <button
                 onClick={handleExport}
                 className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
               >
@@ -264,6 +283,11 @@ const CanvasRoom = () => {
         isOpen={showChat} 
         onToggle={() => setShowChat(!showChat)} 
       />
+
+      {/* Video Call */}
+      {showVideo && socket && (
+        <VideoCall socket={socket} roomId={roomId} />
+      )}
     </div>
   );
 };

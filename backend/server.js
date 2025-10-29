@@ -4,7 +4,6 @@ import { Server as SocketIOServer } from 'socket.io';
 import mongoose from 'mongoose';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-// import session from 'express-session'; // Removed - using JWT authentication only
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -12,8 +11,6 @@ import { dirname } from 'path';
 // Config
 import { PORT, MONGODB_URI, corsOptions, socketOptions } from './src/config/index.js';
 
-// Passport configuration removed - using JWT authentication only
-// import passport from './src/config/passport.js';
 
 // Routes
 import authRoutes from './src/routes/auth.routes.js';

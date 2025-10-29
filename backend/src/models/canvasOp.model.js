@@ -1,8 +1,5 @@
 import mongoose from 'mongoose';
 
-// Note: Frontend currently sends points as a flat array of numbers [x1, y1, x2, y2, ...]
-// so we relax the schema to store an array of numbers for performance/compatibility.
-// If you want pressure/tilt later, introduce a new op type/version.
 
 const canvasOpSchema = new mongoose.Schema(
   {
