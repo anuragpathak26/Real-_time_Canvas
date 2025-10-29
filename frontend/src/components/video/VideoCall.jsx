@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { FiVideo, FiVideoOff, FiMic, FiMicOff, FiPhoneOff } from 'react-icons/fi';
+import { FiVideo, FiVideoOff, FiMic, FiMicOff, FiPhoneOff, FiMove } from 'react-icons/fi';
 
 const pcConfig = { iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }] };
 
@@ -10,6 +10,11 @@ const VideoCall = ({ socket, roomId }) => {
   const [cameraOn, setCameraOn] = useState(true);
   const [micOn, setMicOn] = useState(true);
   const [inCall, setInCall] = useState(false);
+
+  // draggable position
+  const [position, setPosition] = useState({ x: 16, y: window.innerHeight - 240 });
+  const dragStateRef = useRef({ dragging: false, offsetX: 0, offsetY: 0 });
+  const containerRef = useRef(null);
 
   const localVideoRef = useRef(null);
 
@@ -83,15 +88,24 @@ const VideoCall = ({ socket, roomId }) => {
 
   const endCall = useCallback(() => {
     if (!inCall) return;
-    if (socket && roomId) socket.emit('webrtc:leave', { roomId });
-    // stop tracks
-    localStream?.getTracks().forEach((t) => t.stop());
-    setLocalStream(null);
-    // close peers
-    Object.values(peers).forEach((pc) => pc.close());
-    setPeers({});
-    setRemoteStreams({});
-    setInCall(false);
+    try {
+      if (socket && roomId) socket.emit('webrtc:leave', { roomId });
+    } finally {
+      // stop tracks
+      localStream?.getTracks().forEach((t) => {
+        try { t.stop(); } catch (_) {}
+      });
+      setLocalStream(null);
+      // close peers
+      Object.values(peers).forEach((pc) => {
+        try { pc.close(); } catch (_) {}
+      });
+      setPeers({});
+      setRemoteStreams({});
+      setInCall(false);
+      setCameraOn(true);
+      setMicOn(true);
+    }
   }, [inCall, localStream, peers, roomId, socket]);
 
   // Signaling wiring
@@ -180,7 +194,6 @@ const VideoCall = ({ socket, roomId }) => {
     if (!inCall) {
       await startCall();
     } else {
-      // Toggle camera while in call
       setCameraOn((v) => !v);
     }
   };
@@ -194,10 +207,42 @@ const VideoCall = ({ socket, roomId }) => {
     }
   };
 
+  // Drag handlers
+  const onDragStart = (e) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    dragStateRef.current = {
+      dragging: true,
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+    };
+    window.addEventListener('mousemove', onDragging);
+    window.addEventListener('mouseup', onDragEnd, { once: true });
+  };
+
+  const onDragging = (e) => {
+    if (!dragStateRef.current.dragging) return;
+    const newX = Math.max(8, Math.min(window.innerWidth - 380 - 8, e.clientX - dragStateRef.current.offsetX));
+    const newY = Math.max(8, Math.min(window.innerHeight - 220 - 8, e.clientY - dragStateRef.current.offsetY));
+    setPosition({ x: newX, y: newY });
+  };
+
+  const onDragEnd = () => {
+    dragStateRef.current.dragging = false;
+    window.removeEventListener('mousemove', onDragging);
+  };
+
   return (
-    <div className="fixed bottom-4 left-4 bg-white rounded-lg shadow-xl p-3 w-[380px]">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-semibold">Video Call</h3>
+    <div
+      ref={containerRef}
+      className="fixed bg-white rounded-lg shadow-xl p-3 w-[380px]"
+      style={{ left: position.x, top: position.y }}
+    >
+      <div className="flex items-center justify-between mb-2 cursor-move select-none" onMouseDown={onDragStart}>
+        <div className="flex items-center gap-2">
+          <FiMove />
+          <h3 className="font-semibold">Video Call</h3>
+        </div>
         <div className="flex gap-2 items-center">
           <button
             className={`p-2 rounded ${inCall && cameraOn ? 'bg-green-600 text-white' : inCall ? 'bg-yellow-500 text-white' : 'bg-gray-200'}`}
