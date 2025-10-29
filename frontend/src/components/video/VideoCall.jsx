@@ -3,7 +3,7 @@ import { FiVideo, FiVideoOff, FiMic, FiMicOff, FiPhoneOff, FiMove } from 'react-
 
 const pcConfig = { iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }] };
 
-const VideoCall = ({ socket, roomId }) => {
+const VideoCall = ({ socket, roomId, onEnd }) => {
   const [localStream, setLocalStream] = useState(null);
   const [remoteStreams, setRemoteStreams] = useState({}); // socketId -> MediaStream
   const [peers, setPeers] = useState({}); // socketId -> RTCPeerConnection
@@ -95,6 +95,10 @@ const VideoCall = ({ socket, roomId }) => {
       localStream?.getTracks().forEach((t) => {
         try { t.stop(); } catch (_) {}
       });
+      // detach local video
+      if (localVideoRef.current) {
+        try { localVideoRef.current.srcObject = null; } catch (_) {}
+      }
       setLocalStream(null);
       // close peers
       Object.values(peers).forEach((pc) => {
@@ -105,8 +109,10 @@ const VideoCall = ({ socket, roomId }) => {
       setInCall(false);
       setCameraOn(true);
       setMicOn(true);
+      // notify parent to close panel if provided
+      if (typeof onEnd === 'function') onEnd();
     }
-  }, [inCall, localStream, peers, roomId, socket]);
+  }, [inCall, localStream, peers, roomId, socket, onEnd]);
 
   // Signaling wiring
   useEffect(() => {
@@ -210,6 +216,7 @@ const VideoCall = ({ socket, roomId }) => {
   // Drag handlers
   const onDragStart = (e) => {
     if (!containerRef.current) return;
+    e.preventDefault();
     const rect = containerRef.current.getBoundingClientRect();
     dragStateRef.current = {
       dragging: true,
@@ -231,6 +238,12 @@ const VideoCall = ({ socket, roomId }) => {
     dragStateRef.current.dragging = false;
     window.removeEventListener('mousemove', onDragging);
   };
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('mousemove', onDragging);
+    };
+  }, []);
 
   return (
     <div

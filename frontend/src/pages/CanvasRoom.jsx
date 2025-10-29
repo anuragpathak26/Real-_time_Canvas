@@ -287,7 +287,7 @@ const CanvasRoom = () => {
 
       {/* Video Call */}
       {showVideo && socket && (
-        <VideoCall socket={socket} roomId={roomId} />
+        <VideoCall socket={socket} roomId={roomId} onEnd={() => setShowVideo(false)} />
       )}
     </div>
   );
