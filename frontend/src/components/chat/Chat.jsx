@@ -13,7 +13,13 @@ const Chat = ({ socket, roomId, isOpen, onToggle }) => {
 
     // Listen for new messages
     const handleNewMessage = (message) => {
-      setMessages(prev => [...prev, message]);
+      // Only add message if it's not from current user (to avoid duplicates)
+      const messageUserId = message.user._id || message.user.id;
+      const currentUserId = user._id || user.id;
+      
+      if (messageUserId !== currentUserId) {
+        setMessages(prev => [...prev, message]);
+      }
     };
 
     // Listen for message history
@@ -31,7 +37,7 @@ const Chat = ({ socket, roomId, isOpen, onToggle }) => {
       socket.off('chat:message', handleNewMessage);
       socket.off('chat:history', handleMessageHistory);
     };
-  }, [socket, roomId]);
+  }, [socket, roomId, user]);
 
   useEffect(() => {
     scrollToBottom();
