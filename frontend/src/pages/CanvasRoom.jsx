@@ -5,7 +5,7 @@ import axios from 'axios';
 import Canvas from '../components/canvas/Canvas';
 import Toolbar from '../components/canvas/Toolbar';
 import UserPresence from '../components/canvas/UserPresence';
-import { FiArrowLeft, FiUsers, FiShare2, FiSettings, FiMessageSquare } from 'react-icons/fi';
+import { FiArrowLeft, FiUsers, FiShare2, FiSettings, FiMessageSquare, FiVideo } from 'react-icons/fi';
 import Chat from '../components/chat/Chat';
 import VideoCall from '../components/video/VideoCall.jsx';
 
@@ -219,6 +219,7 @@ const CanvasRoom = () => {
                 className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2"
                 title="Toggle Video Call"
               >
+                <FiVideo />
                 <span className="hidden sm:inline">Video</span>
               </button>
               <button

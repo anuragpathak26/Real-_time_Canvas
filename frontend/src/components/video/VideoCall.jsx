@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { FiVideo, FiVideoOff, FiMic, FiMicOff, FiPhoneOff } from 'react-icons/fi';
 
 const pcConfig = { iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }] };
 
@@ -8,16 +9,40 @@ const VideoCall = ({ socket, roomId }) => {
   const [peers, setPeers] = useState({}); // socketId -> RTCPeerConnection
   const [cameraOn, setCameraOn] = useState(true);
   const [micOn, setMicOn] = useState(true);
+  const [inCall, setInCall] = useState(false);
+
   const localVideoRef = useRef(null);
+
+  const attachStreamToVideo = (videoEl, stream, muted = false) => {
+    if (!videoEl) return;
+    try {
+      if (videoEl.srcObject !== stream) {
+        videoEl.srcObject = stream;
+      }
+      videoEl.muted = muted;
+      const playPromise = videoEl.play();
+      if (playPromise && typeof playPromise.then === 'function') {
+        playPromise.catch(() => {});
+      }
+    } catch (_) {}
+  };
 
   const getMedia = useCallback(async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     setLocalStream(stream);
-    if (localVideoRef.current) {
-      localVideoRef.current.srcObject = stream;
-    }
+    attachStreamToVideo(localVideoRef.current, stream, true);
     return stream;
   }, []);
+
+  const addLocalTracksToPc = (pc, stream) => {
+    const senders = pc.getSenders();
+    const existingTracks = new Set(senders.map((s) => s.track && s.track.kind));
+    stream.getTracks().forEach((track) => {
+      if (!existingTracks.has(track.kind)) {
+        pc.addTrack(track, stream);
+      }
+    });
+  };
 
   const ensurePeer = useCallback((peerSocketId) => {
     if (peers[peerSocketId]) return peers[peerSocketId];
@@ -34,32 +59,50 @@ const VideoCall = ({ socket, roomId }) => {
       setRemoteStreams((prev) => ({ ...prev, [peerSocketId]: stream }));
     };
 
-    // Add existing local tracks
     if (localStream) {
-      localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+      addLocalTracksToPc(pc, localStream);
     }
 
     setPeers((prev) => ({ ...prev, [peerSocketId]: pc }));
     return pc;
   }, [localStream, peers, roomId, socket]);
 
-  // Start call: join signaling and create offers to existing peers
+  // When local stream changes (e.g., user started call), add tracks to all PCs
+  useEffect(() => {
+    if (!localStream) return;
+    Object.values(peers).forEach((pc) => addLocalTracksToPc(pc, localStream));
+  }, [localStream, peers]);
+
+  // Start the call: get media and join signaling
+  const startCall = useCallback(async () => {
+    if (inCall) return;
+    await getMedia();
+    if (socket && roomId) socket.emit('webrtc:join', { roomId });
+    setInCall(true);
+  }, [getMedia, inCall, roomId, socket]);
+
+  const endCall = useCallback(() => {
+    if (!inCall) return;
+    if (socket && roomId) socket.emit('webrtc:leave', { roomId });
+    // stop tracks
+    localStream?.getTracks().forEach((t) => t.stop());
+    setLocalStream(null);
+    // close peers
+    Object.values(peers).forEach((pc) => pc.close());
+    setPeers({});
+    setRemoteStreams({});
+    setInCall(false);
+  }, [inCall, localStream, peers, roomId, socket]);
+
+  // Signaling wiring
   useEffect(() => {
     if (!socket || !roomId) return;
 
-    let isMounted = true;
-
-    (async () => {
-      const stream = localStream || (await getMedia());
-      if (!isMounted) return;
-      // Join signaling
-      socket.emit('webrtc:join', { roomId });
-    })();
-
     const handlePeers = async ({ peers: currentPeers }) => {
+      // Create offers to existing peers
       for (const peerId of currentPeers) {
         const pc = ensurePeer(peerId);
-        // Create offer
+        if (localStream) addLocalTracksToPc(pc, localStream);
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         socket.emit('webrtc:offer', { roomId, toSocketId: peerId, description: offer });
@@ -68,6 +111,7 @@ const VideoCall = ({ socket, roomId }) => {
 
     const handleOffer = async ({ fromSocketId, description }) => {
       const pc = ensurePeer(fromSocketId);
+      if (localStream) addLocalTracksToPc(pc, localStream);
       await pc.setRemoteDescription(new RTCSessionDescription(description));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
@@ -84,15 +128,13 @@ const VideoCall = ({ socket, roomId }) => {
       try {
         await pc.addIceCandidate(new RTCIceCandidate(candidate));
       } catch (e) {
-        console.error('Error adding received ICE candidate', e);
+        console.error('Error adding ICE candidate', e);
       }
     };
 
     const handlePeerLeft = ({ socketId }) => {
       const pc = peers[socketId];
-      if (pc) {
-        pc.close();
-      }
+      if (pc) pc.close();
       setPeers((prev) => {
         const { [socketId]: _, ...rest } = prev;
         return rest;
@@ -110,14 +152,13 @@ const VideoCall = ({ socket, roomId }) => {
     socket.on('webrtc:peer-left', handlePeerLeft);
 
     return () => {
-      isMounted = false;
       socket.off('webrtc:peers', handlePeers);
       socket.off('webrtc:offer', handleOffer);
       socket.off('webrtc:answer', handleAnswer);
       socket.off('webrtc:ice', handleIce);
       socket.off('webrtc:peer-left', handlePeerLeft);
     };
-  }, [socket, roomId, ensurePeer, getMedia, localStream, peers]);
+  }, [socket, roomId, ensurePeer, peers, localStream]);
 
   // Apply camera/mic toggles
   useEffect(() => {
@@ -130,43 +171,57 @@ const VideoCall = ({ socket, roomId }) => {
     localStream.getAudioTracks().forEach((t) => (t.enabled = micOn));
   }, [micOn, localStream]);
 
-  const leaveCall = useCallback(() => {
-    if (socket && roomId) socket.emit('webrtc:leave', { roomId });
-    // stop tracks
-    localStream?.getTracks().forEach((t) => t.stop());
-    setLocalStream(null);
-    // close peers
-    Object.values(peers).forEach((pc) => pc.close());
-    setPeers({});
-    setRemoteStreams({});
-  }, [localStream, peers, roomId, socket]);
+  // Keep local video element attached
+  useEffect(() => {
+    if (localStream) attachStreamToVideo(localVideoRef.current, localStream, true);
+  }, [localStream]);
+
+  const onClickVideo = async () => {
+    if (!inCall) {
+      await startCall();
+    } else {
+      // Toggle camera while in call
+      setCameraOn((v) => !v);
+    }
+  };
+
+  const onClickMic = async () => {
+    if (!inCall) {
+      await startCall();
+      setMicOn(true);
+    } else {
+      setMicOn((v) => !v);
+    }
+  };
 
   return (
-    <div className="fixed bottom-4 left-4 bg-white rounded-lg shadow-xl p-3 w-[360px]">
+    <div className="fixed bottom-4 left-4 bg-white rounded-lg shadow-xl p-3 w-[380px]">
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-semibold">Video Call</h3>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <button
-            className={`px-3 py-1 rounded ${cameraOn ? 'bg-green-600 text-white' : 'bg-gray-200'}`}
-            onClick={() => setCameraOn((v) => !v)}
-            title={cameraOn ? 'Turn camera off' : 'Turn camera on'}
+            className={`p-2 rounded ${inCall && cameraOn ? 'bg-green-600 text-white' : inCall ? 'bg-yellow-500 text-white' : 'bg-gray-200'}`}
+            onClick={onClickVideo}
+            title={!inCall ? 'Start call' : cameraOn ? 'Turn camera off' : 'Turn camera on'}
           >
-            Cam
+            {!inCall ? <FiVideo /> : cameraOn ? <FiVideo /> : <FiVideoOff />}
           </button>
           <button
-            className={`px-3 py-1 rounded ${micOn ? 'bg-green-600 text-white' : 'bg-gray-200'}`}
-            onClick={() => setMicOn((v) => !v)}
-            title={micOn ? 'Mute mic' : 'Unmute mic'}
+            className={`p-2 rounded ${inCall && micOn ? 'bg-green-600 text-white' : inCall ? 'bg-yellow-500 text-white' : 'bg-gray-200'}`}
+            onClick={onClickMic}
+            title={!inCall ? 'Start call (mic on)' : micOn ? 'Mute mic' : 'Unmute mic'}
           >
-            Mic
+            {micOn ? <FiMic /> : <FiMicOff />}
           </button>
-          <button
-            className="px-3 py-1 rounded bg-red-600 text-white"
-            onClick={leaveCall}
-            title="Leave call"
-          >
-            Leave
-          </button>
+          {inCall && (
+            <button
+              className="p-2 rounded bg-red-600 text-white"
+              onClick={endCall}
+              title="End call"
+            >
+              <FiPhoneOff />
+            </button>
+          )}
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2">
@@ -183,7 +238,13 @@ const VideoTile = ({ stream }) => {
   const ref = useRef(null);
   useEffect(() => {
     if (ref.current) {
-      ref.current.srcObject = stream;
+      try {
+        if (ref.current.srcObject !== stream) {
+          ref.current.srcObject = stream;
+        }
+        const p = ref.current.play();
+        if (p && typeof p.then === 'function') p.catch(() => {});
+      } catch (_) {}
     }
   }, [stream]);
   return <video ref={ref} autoPlay playsInline className="w-full h-32 bg-black rounded" />;
