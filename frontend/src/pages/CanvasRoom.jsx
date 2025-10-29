@@ -5,7 +5,8 @@ import axios from 'axios';
 import Canvas from '../components/canvas/Canvas';
 import Toolbar from '../components/canvas/Toolbar';
 import UserPresence from '../components/canvas/UserPresence';
-import { FiArrowLeft, FiUsers, FiShare2, FiSettings } from 'react-icons/fi';
+import { FiArrowLeft, FiUsers, FiShare2, FiSettings, FiMessageSquare } from 'react-icons/fi';
+import Chat from '../components/chat/Chat';
 
 const CanvasRoom = () => {
   const { roomId } = useParams();
@@ -25,6 +26,8 @@ const CanvasRoom = () => {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 800 });
+  const [showChat, setShowChat] = useState(false);
+  const [socket, setSocket] = useState(null);
 
   const canvasRef = useRef(null);
   const canvasContainerRef = useRef(null);
@@ -84,6 +87,10 @@ const CanvasRoom = () => {
 
   const handlePresenceUpdate = (updatedUsers) => {
     setUsers(updatedUsers);
+  };
+
+  const handleSocketReady = (socketInstance) => {
+    setSocket(socketInstance);
   };
 
   const handleLeaveRoom = () => {
@@ -181,23 +188,30 @@ const CanvasRoom = () => {
           <div className="flex items-center gap-4">
             <button
               onClick={() => setShowUserPanel(!showUserPanel)}
-              className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <FiUsers className="w-4 h-4" />
               <span className="font-medium">{users.length} online</span>
             </button>
             
-            <button
-              onClick={handleShareRoom}
-              className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors"
-            >
-              <FiShare2 className="w-4 h-4" />
-              <span className="font-medium">Share</span>
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowChat(!showChat)}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                title="Toggle Chat"
+              >
+                <FiMessageSquare />
+                <span className="hidden sm:inline">Chat</span>
+              </button>
+              <button
+                onClick={handleExport}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+              >
+                <FiShare2 /> <span className="hidden sm:inline">Export</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>
-
       {/* Main Content */}
       <div className="flex h-[calc(100vh-80px)]">
         {/* Toolbar */}
@@ -228,6 +242,7 @@ const CanvasRoom = () => {
               user={user} 
               onSave={handleSaveCanvas} 
               onPresenceUpdate={handlePresenceUpdate}
+              onSocketReady={handleSocketReady}
               width={canvasSize.width}
               height={canvasSize.height}
             />
@@ -241,6 +256,14 @@ const CanvasRoom = () => {
           </div>
         )}
       </div>
+      
+      {/* Chat Component */}
+      <Chat 
+        socket={socket} 
+        roomId={roomId} 
+        isOpen={showChat} 
+        onToggle={() => setShowChat(!showChat)} 
+      />
     </div>
   );
 };

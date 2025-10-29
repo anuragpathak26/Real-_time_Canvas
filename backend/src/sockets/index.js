@@ -4,6 +4,7 @@ import { JWT_SECRET } from '../config/index.js';
 import User from '../models/user.model.js';
 import Room from '../models/room.model.js';
 import CanvasOp from '../models/canvasOp.model.js';
+import ChatMessage from '../models/chatMessage.model.js';
 
 const jwt = jsonwebtoken;
 
@@ -350,25 +351,84 @@ export function socketHandler(io, socket) {
     });
   });
   
-  // Handle disconnection
-  socket.on('disconnect', () => {
-    console.log(`Socket disconnected: ${socket.id}`);
-    
-    // Update presence
-    if (socket.roomId && socket.user) {
-      updateUserPresence(io, socket, socket.roomId, socket.user.id, false);
+  // Chat functionality
+  socket.on('chat:message', async ({ roomId, content }) => {
+    try {
+      // Verify room access
+      const hasAccess = await checkRoomAccess(roomId, socket.userId);
+      if (!hasAccess) {
+        console.log(`Unauthorized chat attempt from user ${socket.userId} in room ${roomId}`);
+        return;
+      }
+
+      // Create and save message
+      const message = new ChatMessage({
+        room: roomId,
+        user: socket.userId,
+        content: content.trim()
+      });
+      
+      await message.save();
+      
+      // Populate user data for the response
+      const populatedMessage = await message.populate('user', 'name email');
+      
+      // Broadcast to all in the room
+      io.to(roomId).emit('chat:message', {
+        _id: populatedMessage._id,
+        content: populatedMessage.content,
+        user: {
+          _id: populatedMessage.user._id,
+          name: populatedMessage.user.name,
+          email: populatedMessage.user.email
+        },
+        timestamp: populatedMessage.createdAt
+      });
+    } catch (error) {
+      console.error('Error handling chat message:', error);
     }
-    
-    // Clean up any resources
-    activeUsers.forEach((users, roomId) => {
-      if (users.has(socket.id)) {
-        users.delete(socket.id);
-        
-        // If no more users in the room, clean up
-        if (users.size === 0) {
+  });
+
+  // Get chat history
+  socket.on('chat:getHistory', async ({ roomId }) => {
+    try {
+      const hasAccess = await checkRoomAccess(roomId, socket.userId);
+      if (!hasAccess) {
+        console.log(`Unauthorized chat history request from user ${socket.userId} for room ${roomId}`);
+        return;
+      }
+
+      const messages = await ChatMessage.find({ room: roomId })
+        .sort({ createdAt: 1 })
+        .populate('user', 'name email')
+        .limit(100); // Limit to last 100 messages
+
+      socket.emit('chat:history', messages.map(msg => ({
+        _id: msg._id,
+        content: msg.content,
+        user: {
+          _id: msg.user._id,
+          name: msg.user.name,
+          email: msg.user.email
+        },
+        timestamp: msg.createdAt
+      })));
+    } catch (error) {
+      console.error('Error fetching chat history:', error);
+    }
+  });
+
+  // Handle socket disconnection
+  socket.on('disconnect', () => {
+    console.log(`User disconnected: ${socket.id}`);
+    // Remove user from all rooms they were in
+    if (socket.rooms) {
+      socket.rooms.forEach(roomId => {
+        if (roomId !== socket.id) { // Skip the default room
+          updateUserPresence(io, socket, roomId, socket.user.id, false);
           activeUsers.delete(roomId);
         }
-      }
-    });
+      });
+    }
   });
 }

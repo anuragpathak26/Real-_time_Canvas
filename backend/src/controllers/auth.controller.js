@@ -27,7 +27,7 @@ const createUserResponse = (user, message = 'Success') => {
 // Register new user
 export const register = async (req, res) => {
   try {
-    console.log('🔥 Registration attempt:', { email: req.body.email, name: req.body.name });
+    console.log('Registration attempt:', { email: req.body.email, name: req.body.name });
     
     const { name, email: rawEmail, password } = req.body;
     
@@ -48,7 +48,7 @@ export const register = async (req, res) => {
     
     // Check database connection
     if (mongoose.connection.readyState !== 1) {
-      console.log('⚠️ Database not connected, creating demo user');
+      console.log('Database not connected, creating demo user');
       const tempUser = {
         id: Date.now().toString(),
         name,
@@ -64,7 +64,7 @@ export const register = async (req, res) => {
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      console.log('❌ User already exists:', email);
+      console.log('User already exists:', email);
       return res.status(400).json({ message: 'User already exists with this email' });
     }
     
@@ -76,13 +76,13 @@ export const register = async (req, res) => {
     });
     
     await user.save();
-    console.log('✅ User created successfully:', user.email);
+    console.log('User created successfully:', user.email);
     
     const response = createUserResponse(user, 'User registered successfully');
     res.status(201).json(response);
     
   } catch (error) {
-    console.error('❌ Registration error:', error);
+    console.error('Registration error:', error);
     
     // Handle duplicate key error
     if (error.code === 11000) {
@@ -102,7 +102,7 @@ export const register = async (req, res) => {
 // Login user
 export const login = async (req, res) => {
   try {
-    console.log('🔥 Login attempt:', { email: req.body.email });
+    console.log('Login attempt:', { email: req.body.email });
     
     const { email: rawEmail, password } = req.body;
     
@@ -115,7 +115,7 @@ export const login = async (req, res) => {
     
     // Check database connection
     if (mongoose.connection.readyState !== 1) {
-      console.log('⚠️ Database not connected, creating demo login');
+      console.log('Database not connected, creating demo login');
       const tempUser = { 
         id: Date.now().toString(), 
         name: 'Demo User', 
@@ -130,23 +130,23 @@ export const login = async (req, res) => {
     // Find user by email
     const user = await User.findOne({ email });
     if (!user) {
-      console.log('❌ User not found:', email);
+      console.log('User not found:', email);
       return res.status(401).json({ message: 'Invalid email or password' });
     }
     
     // Check password using the model method
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
-      console.log('❌ Invalid password for user:', email);
+      console.log('Invalid password for user:', email);
       return res.status(401).json({ message: 'Invalid email or password' });
     }
     
-    console.log('✅ Login successful:', user.email);
+    console.log('Login successful:', user.email);
     const response = createUserResponse(user, 'Login successful');
     res.json(response);
     
   } catch (error) {
-    console.error('❌ Login error:', error);
+    console.error('Login error:', error);
     res.status(500).json({ message: 'Login failed. Please try again.' });
   }
 };
@@ -154,7 +154,7 @@ export const login = async (req, res) => {
 // Get current user profile
 export const getMe = async (req, res) => {
   try {
-    console.log('🔍 Getting user profile for:', req.user.userId);
+    console.log('Getting user profile for:', req.user.userId);
     
     // Check database connection
     if (mongoose.connection.readyState !== 1) {
@@ -171,11 +171,11 @@ export const getMe = async (req, res) => {
     // Find user and exclude password
     const user = await User.findById(req.user.userId).select('-password');
     if (!user) {
-      console.log('❌ User not found:', req.user.userId);
+      console.log('User not found:', req.user.userId);
       return res.status(404).json({ message: 'User not found' });
     }
     
-    console.log('✅ User profile retrieved:', user.email);
+    console.log('User profile retrieved:', user.email);
     res.json({
       id: user._id,
       name: user.name,
@@ -187,7 +187,7 @@ export const getMe = async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Get user error:', error);
+    console.error('Get user error:', error);
     res.status(500).json({ message: 'Failed to get user profile' });
   }
 };
@@ -199,14 +199,14 @@ export const oauthSuccess = async (req, res) => {
     const token = generateToken(req.user._id);
     res.redirect(`${CLIENT_URL}/auth/callback?token=${token}`);
   } catch (error) {
-    console.error('❌ OAuth success error:', error);
+    console.error('OAuth success error:', error);
     res.redirect(`${CLIENT_URL}/login?error=oauth_error`);
   }
 };
 
 // OAuth failure handler (kept for compatibility)
 export const oauthFailure = (req, res) => {
-  console.log('❌ OAuth authentication failed');
+  console.log('OAuth authentication failed');
   res.redirect(`${CLIENT_URL}/login?error=oauth_failed`);
 };
 
@@ -230,7 +230,7 @@ export const debugUsers = async (req, res) => {
       })),
     });
   } catch (error) {
-    console.error('❌ Debug users error:', error);
+    console.error(' Debug users error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -254,14 +254,14 @@ export const fixKushalPassword = async (req, res) => {
     user.password = newPassword;
     await user.save();
     
-    console.log('✅ Password fixed for user:', user.email);
+    console.log(' Password fixed for user:', user.email);
     res.json({ 
       message: 'Password fixed successfully', 
       email: user.email, 
       name: user.name 
     });
   } catch (error) {
-    console.error('❌ Fix password error:', error);
+    console.error(' Fix password error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -336,7 +336,7 @@ export const createTestUser = async (req, res) => {
     });
     
     await testUser.save();
-    console.log('✅ Test user created successfully');
+    console.log('Test user created successfully');
 
     res.json({
       message: 'Test user created successfully',
@@ -344,7 +344,7 @@ export const createTestUser = async (req, res) => {
       userId: testUser._id,
     });
   } catch (error) {
-    console.error('❌ Create test user error:', error);
+    console.error('Create test user error:', error);
     res.status(500).json({ message: 'Failed to create test user', error: error.message });
   }
 };
@@ -371,13 +371,13 @@ export const debugResetPassword = async (req, res) => {
     user.password = newPassword;
     await user.save();
     
-    console.log('✅ Password reset for user:', user.email);
+    console.log('Password reset for user:', user.email);
     res.json({ 
       message: 'Password updated successfully', 
       email: user.email 
     });
   } catch (error) {
-    console.error('❌ Debug reset password error:', error);
+    console.error('Debug reset password error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -405,7 +405,7 @@ export const debugFixUserLogin = async (req, res) => {
       // Update existing user password
       user.password = password;
       await user.save();
-      console.log('✅ Password updated for existing user:', user.email);
+      console.log('Password updated for existing user:', user.email);
     } else {
       // Create new user
       user = new User({ 
@@ -414,7 +414,7 @@ export const debugFixUserLogin = async (req, res) => {
         password 
       });
       await user.save();
-      console.log('✅ New user created:', user.email);
+      console.log('New user created:', user.email);
     }
     
     res.json({ 
@@ -426,7 +426,7 @@ export const debugFixUserLogin = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('❌ Fix user login error:', error);
+    console.error('Fix user login error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -469,7 +469,7 @@ export const debugSystemStatus = async (req, res) => {
 
     res.json(systemInfo);
   } catch (error) {
-    console.error('❌ System status error:', error);
+    console.error('System status error:', error);
     res.status(500).json({ message: 'System status check failed', error: error.message });
   }
 };

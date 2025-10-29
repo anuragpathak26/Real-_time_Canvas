@@ -12,7 +12,7 @@ import { io } from 'socket.io-client';
 import { v4 as uuidv4 } from 'uuid';
 import RemoteCursor from './RemoteCursor';
 
-const Canvas = forwardRef(({ roomId, user, onSave, onPresenceUpdate, width = 1200, height = 800 }, ref) => {
+const Canvas = forwardRef(({ roomId, user, onSave, onPresenceUpdate, onSocketReady, width = 1200, height = 800 }, ref) => {
   // connection
   const [socket, setSocket] = useState(null);
 
@@ -70,6 +70,11 @@ const Canvas = forwardRef(({ roomId, user, onSave, onPresenceUpdate, width = 120
     });
 
     setSocket(newSocket);
+    
+    // Notify parent component that socket is ready
+    if (onSocketReady) {
+      onSocketReady(newSocket);
+    }
     
     // Join the room after connect to receive presence/history
     const token = localStorage.getItem('token');
