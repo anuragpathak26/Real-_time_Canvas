@@ -11,6 +11,9 @@ const VideoCall = ({ socket, roomId, onEnd }) => {
   const [micOn, setMicOn] = useState(true);
   const [inCall, setInCall] = useState(false);
 
+  // Queue ICE candidates until remoteDescription is set
+  const pendingIceRef = useRef({}); // socketId -> RTCIceCandidateInit[]
+
   // draggable position
   const [position, setPosition] = useState({ x: 16, y: window.innerHeight - 240 });
   const dragStateRef = useRef({ dragging: false, offsetX: 0, offsetY: 0 });
@@ -78,6 +81,17 @@ const VideoCall = ({ socket, roomId, onEnd }) => {
     Object.values(peers).forEach((pc) => addLocalTracksToPc(pc, localStream));
   }, [localStream, peers]);
 
+  // helper to drain queued ICE
+  const drainQueuedIce = async (peerSocketId, pc) => {
+    const queued = pendingIceRef.current[peerSocketId] || [];
+    if (queued.length > 0 && pc.remoteDescription) {
+      for (const cand of queued) {
+        try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch (_) {}
+      }
+      pendingIceRef.current[peerSocketId] = [];
+    }
+  };
+
   // Start the call: get media and join signaling
   const startCall = useCallback(async () => {
     if (inCall) return;
@@ -109,7 +123,7 @@ const VideoCall = ({ socket, roomId, onEnd }) => {
       setInCall(false);
       setCameraOn(true);
       setMicOn(true);
-      // notify parent to close panel if provided
+      pendingIceRef.current = {};
       if (typeof onEnd === 'function') onEnd();
     }
   }, [inCall, localStream, peers, roomId, socket, onEnd]);
@@ -133,6 +147,7 @@ const VideoCall = ({ socket, roomId, onEnd }) => {
       const pc = ensurePeer(fromSocketId);
       if (localStream) addLocalTracksToPc(pc, localStream);
       await pc.setRemoteDescription(new RTCSessionDescription(description));
+      await drainQueuedIce(fromSocketId, pc);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       socket.emit('webrtc:answer', { roomId, toSocketId: fromSocketId, description: answer });
@@ -141,14 +156,23 @@ const VideoCall = ({ socket, roomId, onEnd }) => {
     const handleAnswer = async ({ fromSocketId, description }) => {
       const pc = ensurePeer(fromSocketId);
       await pc.setRemoteDescription(new RTCSessionDescription(description));
+      await drainQueuedIce(fromSocketId, pc);
     };
 
     const handleIce = async ({ fromSocketId, candidate }) => {
       const pc = ensurePeer(fromSocketId);
+      if (!pc.remoteDescription || !pc.remoteDescription.type) {
+        // queue until remote description is set
+        if (!pendingIceRef.current[fromSocketId]) pendingIceRef.current[fromSocketId] = [];
+        pendingIceRef.current[fromSocketId].push(candidate);
+        return;
+      }
       try {
         await pc.addIceCandidate(new RTCIceCandidate(candidate));
       } catch (e) {
-        console.error('Error adding ICE candidate', e);
+        // If still failing, queue as fallback
+        if (!pendingIceRef.current[fromSocketId]) pendingIceRef.current[fromSocketId] = [];
+        pendingIceRef.current[fromSocketId].push(candidate);
       }
     };
 
@@ -163,6 +187,7 @@ const VideoCall = ({ socket, roomId, onEnd }) => {
         const { [socketId]: __, ...rest } = prev;
         return rest;
       });
+      pendingIceRef.current[socketId] = [];
     };
 
     socket.on('webrtc:peers', handlePeers);

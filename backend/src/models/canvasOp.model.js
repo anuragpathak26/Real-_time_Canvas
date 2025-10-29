@@ -24,6 +24,7 @@ const canvasOpSchema = new mongoose.Schema(
         'shape:start',
         'shape:update',
         'shape:delete',
+        'shape:end',
         'image:add',
         'text:add',
         'clear',
