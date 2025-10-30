@@ -1,70 +1,27 @@
-# Real-Time Collaborative Canvas Platform
+# Real-Time Collaborative Canvas Application
 
-A full-featured, real-time collaborative drawing application built with React, Node.js, Socket.io, and MongoDB. Multiple users can draw simultaneously with live cursor tracking, presence indicators, and comprehensive drawing tools.
+The Real-Time Collaborative Canvas is an advanced web application allowing multiple users to draw, sketch, and share creative ideas in real time. With features like live chat, presence detection, and even integrated video calls, it’s designed for creative teamwork, remote collaboration, classroom interactivity, or simply for fun drawing experiences with friends.
 
-## 🚀 Features
+## HIGHLIGHTED FEATURES
+- **Real-Time Collaboration** – Multiple users can draw, annotate, and create on the same canvas simultaneously. Every stroke, shape, and change appears instantly for all participants.
+- **Chat & Presence** – Built-in chat ensures seamless communication, while live online status shows exactly who’s collaborating with you in the room.
+- **Video Call Integration** – Instantly start a video call with other room members without leaving the app, and easily toggle mic/camera during sessions.
+- **Intuitive Drawing Tools** – Freehand drawing, customizable color palette, adjustable brush sizes, shape tools, undo/redo, and text annotations.
+- **Smooth UX** – Responsive, draggable floating windows (e.g., for video calls), clear user presence indicators, and fluid design.
 
-### Authentication & Authorization
-- **OAuth Integration**: Login with Google and GitHub
-- **JWT Authentication**: Secure token-based authentication
-- **User Management**: Profile management with avatars and preferences
+## TECH STACK USED
+- **Frontend:** React.js, Konva.js/Canvas API, Socket.io (WebSockets), Tailwind CSS
+- **Backend:** Node.js, Express.js, Socket.io, JWT Authentication
+- **Database:** MongoDB (Mongoose ORM)
+- **Version Control:** Git & GitHub
 
-### Real-Time Collaboration
-- **Live Drawing**: Multiple users can draw simultaneously
-- **Cursor Tracking**: See other users' cursors with names and avatars
-- **Presence Indicators**: Real-time user presence with online status
-- **Instant Synchronization**: All drawing operations sync in real-time
+## ARCHITECTURE & LEARNING OUTCOMES
+- **React Ecosystem:** Learned scalable component design, state management with Hooks/Context, and best practices for organizing real-world React projects.
+- **Canvas API & Real-Time Sync:** Gained experience implementing collaborative drawing using the HTML5 Canvas API and broadcasting changes efficiently using WebSockets and server events.
+- **Authentication & Roles:** Incorporated JWT for secure room access, user identity, and differentiated features per user.
+- **WebRTC Integration:** Implemented group video call features using peer-to-peer connections, media control, and robust connection handling.
+- **Responsive & Collaborative UX:** Designed interactive, user-friendly UI with real-time presence, active user indicators, and feedback for every action.
+- **Code Collaboration & Git:** Managed a professional repository, utilized branching, reviews, and kept thorough version control using Git and GitHub.
 
-### Drawing Tools
-- **Comprehensive Toolbar**: Pen, eraser, shapes, text, line tools
-- **Color Picker**: Full color palette with custom colors
-- **Brush Sizes**: Multiple brush sizes for different stroke weights
-- **Shape Tools**: Rectangle, circle, and line drawing
-- **Text Tool**: Add text annotations to the canvas
-
-### Canvas Features
-- **Undo/Redo**: Per-user undo/redo stacks
-- **Zoom Controls**: Zoom in/out for detailed work
-- **Clear Canvas**: Clear entire canvas with confirmation
-- **Export**: Save canvas as PNG image
-- **Snapshots**: Save and restore canvas states
-
-### Room Management
-- **Create Rooms**: Users can create collaborative rooms
-- **Join Rooms**: Share room links for easy joining
-- **Room Permissions**: Owner controls and member management
-- **User List**: See all active participants
-
-### Modern UI/UX
-- **Responsive Design**: Works on desktop and mobile devices
-- **Modern Interface**: Clean, intuitive design with smooth animations
-- **Dark/Light Themes**: Support for different visual preferences
-- **Accessibility**: Keyboard shortcuts and screen reader support
-
-## 🛠 Tech Stack
-
-### Backend
-- **Node.js** - Runtime environment
-- **Express.js** - Web framework
-- **Socket.io** - Real-time communication
-- **MongoDB** - Database with Mongoose ODM
-- **Passport.js** - OAuth authentication
-- **JWT** - Token-based authentication
-- **bcrypt** - Password hashing
-
-### Frontend
-- **React 18** - UI framework with hooks
-- **React Router** - Client-side routing
-- **Socket.io Client** - Real-time communication
-- **Konva.js** - 2D canvas library
-- **Tailwind CSS** - Utility-first CSS framework
-- **Framer Motion** - Animation library
-- **React Icons** - Icon components
-
-## 📋 Prerequisites
-
-- Node.js (v16 or higher)
-- MongoDB (local or MongoDB Atlas)
-- Google OAuth credentials (optional)
-- GitHub OAuth credentials (optional)
+This application enabled hands-on learning with full-stack collaborative development, real-time event architecture, advanced frontend UX, and real-world agile practices. It’s a launchpad for further teamwork-driven creative platforms.
 
