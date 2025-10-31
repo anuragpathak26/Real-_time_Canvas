@@ -40,16 +40,18 @@ const CanvasRoom = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
+      const API_BASE_URL = (process.env.REACT_APP_API_URL?.replace(/\/$/, '')) || 'https://real-time-canvas-backend-wd2v.onrender.com/api';
       const response = await axios.get(
-        `${process.env.REACT_APP_API_URL}/rooms/${roomId}`,
+        `${API_BASE_URL}/rooms/${roomId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
+          timeout: 20000,
         }
       );
       setRoom(response.data);
     } catch (err) {
       console.error('Failed to fetch room:', err);
-      setError('Failed to load room. You may not have permission to access it.');
+      setError('Failed to load room. You may not have permission to access it or the server is slow to respond.');
     } finally {
       setLoading(false);
     }

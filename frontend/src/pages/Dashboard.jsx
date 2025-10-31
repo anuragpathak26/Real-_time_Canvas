@@ -32,12 +32,14 @@ const Dashboard = () => {
       try {
         setIsLoading(true);
         const token = localStorage.getItem('token');
-        const response = await axios.get(`${process.env.REACT_APP_API_URL}/rooms`, {
+        const API_BASE_URL = (process.env.REACT_APP_API_URL?.replace(/\/$/, '')) || 'https://real-time-canvas-backend-wd2v.onrender.com/api';
+        const response = await axios.get(`${API_BASE_URL}/rooms`, {
           headers: { Authorization: `Bearer ${token}` },
+          timeout: 20000,
         });
         setRooms(response.data);
       } catch (err) {
-        if (!err.response) setError('Cannot connect to server. Please ensure the backend is running.');
+        if (!err.response) setError('Cannot connect to server. Please ensure the backend is reachable.');
         else setError('Failed to load rooms.');
       } finally {
         setIsLoading(false);
@@ -56,8 +58,9 @@ const Dashboard = () => {
     
     try {
       const token = localStorage.getItem('token');
+      const API_BASE_URL = (process.env.REACT_APP_API_URL?.replace(/\/$/, '')) || 'https://real-time-canvas-backend-wd2v.onrender.com/api';
       const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/rooms`,
+        `${API_BASE_URL}/rooms`,
         { 
           name: newRoomName.trim(),
           description: `Collaborative canvas room created by ${user?.name}`,
@@ -65,6 +68,7 @@ const Dashboard = () => {
         },
         {
           headers: { Authorization: `Bearer ${token}` },
+          timeout: 20000,
         }
       );
       
@@ -101,11 +105,13 @@ const Dashboard = () => {
     
     try {
       const token = localStorage.getItem('token');
+      const API_BASE_URL = (process.env.REACT_APP_API_URL?.replace(/\/$/, '')) || 'https://real-time-canvas-backend-wd2v.onrender.com/api';
       const response = await axios.post(
-        `${process.env.REACT_APP_API_URL}/rooms/join`,
+        `${API_BASE_URL}/rooms/join`,
         { roomId: joinRoomId.trim() },
         {
           headers: { Authorization: `Bearer ${token}` },
+          timeout: 20000,
         }
       );
       
@@ -190,7 +196,7 @@ const Dashboard = () => {
         setError('Only the room owner can delete this room.');
         return;
       }
-      await axios.delete(`${process.env.REACT_APP_API_URL}/rooms/${roomId}`, {
+      await axios.delete(`${(process.env.REACT_APP_API_URL?.replace(/\/$/, '')) || 'https://real-time-canvas-backend-wd2v.onrender.com/api'}/rooms/${roomId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setRooms(rooms.filter(r => r._id !== roomId));

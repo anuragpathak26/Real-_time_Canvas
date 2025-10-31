@@ -5,11 +5,23 @@ import axios from 'axios';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+  // Prefer env; fallback to deployed API with /api suffix
+  const API_BASE_URL = (process.env.REACT_APP_API_URL?.replace(/\/$/, '')) || 'https://real-time-canvas-backend-wd2v.onrender.com/api';
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+
+  // Simple retry helper (1 retry after delay)
+  const withRetry = async (fn, { retries = 1, delayMs = 3000 } = {}) => {
+    try {
+      return await fn();
+    } catch (e) {
+      if (retries <= 0) throw e;
+      await new Promise((r) => setTimeout(r, delayMs));
+      return withRetry(fn, { retries: retries - 1, delayMs });
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -22,16 +34,16 @@ export const AuthProvider = ({ children }) => {
 
   const verifyToken = async (token) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/auth/me`, {
+      const response = await withRetry(() => axios.get(`${API_BASE_URL}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
-        timeout: 5000,
-      });
+        timeout: 20000,
+      }));
       setUser(response.data);
       setError(null);
     } catch (err) {
       if (!err.response) {
         console.error('Server connection failed:', err.message);
-        setError('Cannot connect to server. Please ensure the backend is running on port 5000.');
+        setError('Cannot connect to server. Please try again in a moment.');
       } else {
         console.error('Token verification failed:', err.response.status, err.response.data);
         localStorage.removeItem('token');
@@ -58,10 +70,10 @@ export const AuthProvider = ({ children }) => {
       console.log('🔥 Attempting login with:', { email: credentials.email, password: '***' });
       console.log('🔥 API URL:', `${API_BASE_URL}/auth/login`);
       
-      const response = await axios.post(`${API_BASE_URL}/auth/login`, credentials, {
+      const response = await withRetry(() => axios.post(`${API_BASE_URL}/auth/login`, credentials, {
         headers: { 'Content-Type': 'application/json' },
-        timeout: 10000, // Increased timeout for production server
-      });
+        timeout: 20000,
+      }));
       
       console.log('Login successful:', response.data);
       const { token, user } = response.data;
@@ -81,9 +93,11 @@ export const AuthProvider = ({ children }) => {
       let debugInfo = '';
       
       if (!err.response) {
-        if (err.code === 'ECONNREFUSED') {
-          errorMessage = 'Cannot connect to server. The backend server appears to be down.';
-          debugInfo = 'Check if the backend is running on the correct port.';
+        if (err.code === 'ECONNABORTED') {
+          errorMessage = 'Server took too long to respond.';
+          debugInfo = 'Cold start or network latency.';
+        } else if (err.code === 'ECONNREFUSED') {
+          errorMessage = 'Cannot connect to server. The backend appears down.';
         } else if (err.code === 'ENOTFOUND') {
           errorMessage = 'Server not found. Please check the server URL.';
           debugInfo = `Trying to connect to: ${API_BASE_URL}`;
@@ -98,23 +112,19 @@ export const AuthProvider = ({ children }) => {
         switch (status) {
           case 401:
             errorMessage = data?.message || 'Invalid credentials';
-            debugInfo = 'This could be due to: wrong password, user not found, or database connection issues.';
             break;
           case 404:
             errorMessage = 'Login endpoint not found';
-            debugInfo = 'The server may be misconfigured or the API route is missing.';
+            debugInfo = `Check API_BASE_URL (${API_BASE_URL}) includes /api`;
             break;
           case 500:
             errorMessage = 'Server error occurred';
-            debugInfo = 'This is likely a database connection issue or server misconfiguration.';
             break;
           case 400:
             errorMessage = data?.message || 'Invalid request';
-            debugInfo = 'Check that email and password are provided correctly.';
             break;
           default:
             errorMessage = data?.message || `Server error (${status})`;
-            debugInfo = 'Unexpected server response.';
         }
       }
       
@@ -127,10 +137,10 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       setError(null);
-      const response = await axios.post(`${API_BASE_URL}/auth/register`, userData, {
+      const response = await withRetry(() => axios.post(`${API_BASE_URL}/auth/register`, userData, {
         headers: { 'Content-Type': 'application/json' },
-        timeout: 5000,
-      });
+        timeout: 20000,
+      }));
       const { token, user } = response.data;
       localStorage.setItem('token', token);
       setUser(user);
@@ -138,7 +148,7 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       let errorMessage = 'Registration failed';
       if (!err.response) {
-        errorMessage = 'Cannot connect to server. Please ensure the backend is running.';
+        errorMessage = 'Cannot connect to server. Please try again shortly.';
       } else {
         errorMessage = err.response.data?.message || errorMessage;
       }
@@ -156,16 +166,16 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = async (userData) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.put(`${API_BASE_URL}/users/profile`, userData, {
+      const response = await withRetry(() => axios.put(`${API_BASE_URL}/users/profile`, userData, {
         headers: { Authorization: `Bearer ${token}` },
-        timeout: 5000,
-      });
+        timeout: 20000,
+      }));
       setUser(response.data);
       return { success: true };
     } catch (err) {
       let errorMessage = 'Update failed';
       if (!err.response) {
-        errorMessage = 'Cannot connect to server. Please ensure the backend is running.';
+        errorMessage = 'Cannot connect to server. Please try again shortly.';
       } else {
         errorMessage = err.response.data?.message || errorMessage;
       }
