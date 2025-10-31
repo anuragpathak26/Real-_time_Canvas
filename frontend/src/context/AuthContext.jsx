@@ -5,7 +5,7 @@ import axios from 'axios';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://real-time-canvas-backend-wd2v.onrender.com/api';
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -63,13 +63,13 @@ export const AuthProvider = ({ children }) => {
         timeout: 10000, // Increased timeout for production server
       });
       
-      console.log('✅ Login successful:', response.data);
+      console.log('Login successful:', response.data);
       const { token, user } = response.data;
       localStorage.setItem('token', token);
       setUser(user);
       return { success: true };
     } catch (err) {
-      console.error('❌ Login error details:', {
+      console.error('Login error details:', {
         status: err.response?.status,
         statusText: err.response?.statusText,
         data: err.response?.data,
@@ -118,7 +118,7 @@ export const AuthProvider = ({ children }) => {
         }
       }
       
-      console.error('🔧 Debug info:', debugInfo);
+      console.error('Debug info:', debugInfo);
       setError(`${errorMessage}${debugInfo ? ` (${debugInfo})` : ''}`);
       return { success: false, error: errorMessage, debugInfo };
     }
