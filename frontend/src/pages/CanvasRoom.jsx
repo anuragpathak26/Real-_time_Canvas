@@ -30,6 +30,8 @@ const CanvasRoom = () => {
   const [showChat, setShowChat] = useState(false);
   const [socket, setSocket] = useState(null);
   const [showVideo, setShowVideo] = useState(false);
+  const [unreadChat, setUnreadChat] = useState(0);
+  const [toasts, setToasts] = useState([]); // { id, text }
 
   const canvasRef = useRef(null);
   const canvasContainerRef = useRef(null);
@@ -100,6 +102,45 @@ const CanvasRoom = () => {
     }
     setUsers(unique);
   };
+
+  // Socket listeners for chat notifications and video call toasts
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleChatMessage = (message) => {
+      const messageUserId = message?.user?._id || message?.user?.id;
+      const currentUserId = user?._id || user?.id;
+      if (!showChat && messageUserId && currentUserId && messageUserId !== currentUserId) {
+        setUnreadChat((c) => c + 1);
+        setToasts((prev) => [...prev, { id: `chat-${Date.now()}`, text: `New message from ${message.user.name}` }]);
+        setTimeout(() => setToasts((prev) => prev.slice(1)), 4000);
+      }
+    };
+
+    const handleCallStart = (payload) => {
+      if (payload?.user?.name) {
+        setToasts((prev) => [...prev, { id: `call-${Date.now()}`, text: `${payload.user.name} started a video call` }]);
+        setTimeout(() => setToasts((prev) => prev.slice(1)), 4000);
+      }
+    };
+
+    const handleCallEnd = (payload) => {
+      if (payload?.user?.name) {
+        setToasts((prev) => [...prev, { id: `callend-${Date.now()}`, text: `${payload.user.name} ended the video call` }]);
+        setTimeout(() => setToasts((prev) => prev.slice(1)), 4000);
+      }
+    };
+
+    socket.on('chat:message', handleChatMessage);
+    socket.on('webrtc:call-start', handleCallStart);
+    socket.on('webrtc:call-end', handleCallEnd);
+
+    return () => {
+      socket.off('chat:message', handleChatMessage);
+      socket.off('webrtc:call-start', handleCallStart);
+      socket.off('webrtc:call-end', handleCallEnd);
+    };
+  }, [socket, showChat, user]);
 
   const handleSocketReady = (socketInstance) => {
     setSocket(socketInstance);
@@ -208,11 +249,16 @@ const CanvasRoom = () => {
             <div className="flex gap-2">
               <button
                 onClick={() => setShowChat(!showChat)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 relative"
                 title="Toggle Chat"
               >
                 <FiMessageSquare />
                 <span className="hidden sm:inline">Chat</span>
+                {unreadChat > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full px-2 py-0.5">
+                    {unreadChat}
+                  </span>
+                )}
               </button>
               <button
                 onClick={() => setShowVideo((v) => !v)}
@@ -282,13 +328,22 @@ const CanvasRoom = () => {
         socket={socket} 
         roomId={roomId} 
         isOpen={showChat} 
-        onToggle={() => setShowChat(!showChat)} 
+        onToggle={() => { setShowChat(!showChat); if (!showChat) setUnreadChat(0); }} 
       />
 
       {/* Video Call */}
       {showVideo && socket && (
         <VideoCall socket={socket} roomId={roomId} onEnd={() => setShowVideo(false)} />
       )}
+
+      {/* Toasts */}
+      <div className="fixed top-4 right-4 space-y-2 z-50">
+        {toasts.map((t) => (
+          <div key={t.id} className="bg-gray-900 text-white px-4 py-2 rounded shadow-lg opacity-90">
+            {t.text}
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

@@ -474,6 +474,12 @@ export function socketHandler(io, socket) {
       if (!socket.user || !socket.user.id) return;
       if (!roomId || !socket.rooms.has(roomId)) return;
 
+      // Notify others that a call started by this user
+      socket.to(roomId).emit('webrtc:call-start', {
+        roomId,
+        user: { id: socket.user.id, name: socket.user.name, email: socket.user.email }
+      });
+
       // Send back current peers in the room (socket IDs), excluding self
       const roomSet = io.sockets.adapter.rooms.get(roomId) || new Set();
       const peers = Array.from(roomSet).filter((sid) => sid !== socket.id);
@@ -504,7 +510,15 @@ export function socketHandler(io, socket) {
   socket.on('webrtc:leave', ({ roomId }) => {
     if (!roomId) return;
     if (!socket.rooms.has(roomId)) return;
+    // Notify peers for WebRTC
     socket.to(roomId).emit('webrtc:peer-left', { roomId, socketId: socket.id });
+    // Notify peers that call ended for this user
+    if (socket.user) {
+      socket.to(roomId).emit('webrtc:call-end', {
+        roomId,
+        user: { id: socket.user.id, name: socket.user.name, email: socket.user.email }
+      });
+    }
   });
 
   // Handle socket disconnection
@@ -517,6 +531,11 @@ export function socketHandler(io, socket) {
           updateUserPresence(io, socket, roomId, socket.user.id, socket.user.name, socket.user.email, false);
           // Notify peers for WebRTC
           socket.to(roomId).emit('webrtc:peer-left', { roomId, socketId: socket.id });
+          // Call end notification
+          socket.to(roomId).emit('webrtc:call-end', {
+            roomId,
+            user: { id: socket.user.id, name: socket.user.name, email: socket.user.email }
+          });
         }
       });
     }
